@@ -28,7 +28,7 @@ library(data.table)
 library(ggplot2)
 ```
 
-Loading and cleaning the datasets of three countries
+Loading and cleaning the datasets
 
 ```{r}
 col_names <- c("Country Name", "Country ISO3", "Year", 
@@ -228,6 +228,8 @@ ggplot(avg_life_expectancy_female, aes(x = Year, y = Avg_LifeExp, color = Countr
 **Observation:**
 
 -   Germany consistently leads in female life expectancy, followed by Brazil and India, all showing steady improvements over time.
+
+- Female life expectancy in Europe is comparatively high when compared to other place 
 
 -   A noticeable dip around 2020–2021 across all countries likely reflects the impact of the COVID-19 pandemic.
 
