@@ -1,0 +1,259 @@
+---
+title: "STAT40830 – Advance Data Programming with R"
+author: "Charukeshi Senthamarai Kannan – 24213384"
+format:
+  revealjs:
+    theme: "serif"
+    code-visibility: show
+    slide-number: true
+execute:
+  echo: true
+  warning: false
+  message: false
+fontsize: 15pt
+---
+
+## Assignment 1
+
+#### Introduction:
+
+In this presentation, we analyze the socio-economic, environmental, and educational trends of three countries: India, Brazil, and Germany using "data.table" .
+
+#### Question 1
+
+Loading the Libraries
+
+```{r}
+library(data.table)
+library(ggplot2)
+```
+
+Loading and cleaning the datasets of three countries
+
+```{r}
+col_names <- c("Country Name", "Country ISO3", "Year", 
+               "Indicator_Name", "Indicator_Code", "Value")
+
+india <- fread("india.csv", skip = 1, col.names = col_names)
+brazil <- fread("brazil.csv", skip = 1, col.names = col_names)
+germany <- fread("germany.csv", skip = 1, col.names = col_names)
+```
+
+Defining a cleaning function to assign correct classes and to add country name
+
+```{r}
+clean_data <- function(dt, country_name) {
+  dt[, Year := as.integer(Year)]                 
+  dt[, Value := as.numeric(Value)]               
+  dt[, Country := country_name]                  
+  return(dt)
+}
+```
+
+Applying the cleaning function to each dataset
+
+```{r}
+india <- clean_data(india, "India")
+brazil <- clean_data(brazil, "Brazil")
+germany <- clean_data(germany, "Germany")
+```
+
+------------------------------------------------------------------------
+
+#### Question 2:
+
+Combining all the three cleaned datasets into one using rbindlist
+
+```{r}
+comb_data <- rbindlist(list(india, brazil, germany), use.names = TRUE, fill = TRUE)
+```
+
+------------------------------------------------------------------------
+
+#### Question 3:
+
+```{r}
+library(skimr)
+library(dplyr)
+```
+
+checking the structure and the summary of the merged data
+
+```{r}
+str(comb_data)
+```
+
+---------------------------------------------------------------------------------------
+
+Summary of the combined data
+
+```{r}
+summary(comb_data)
+```
+
+---------------------------------------------------------------------
+
+Using skimr for a detailed overview (type, missing, distribution)
+
+```{r}
+skim(comb_data)
+```
+-----------------------------------------------------------------------
+
+Counting the number of unique indicators
+
+```{r}
+comb_data[, .(Num_Indicators = uniqueN(Indicator_Name))]
+```
+
+------------------------------------------------------------------------
+
+Finding the top 10 most frequent indicators
+
+```{r}
+comb_data[, .N, by = Indicator_Name][order(-N)][1:10]
+```
+
+------------------------------------------------------------------------
+
+Counting the number of rows per country
+
+```{r}
+comb_data[, .N, by = Country]
+```
+
+Counting the number of years per country
+
+```{r}
+comb_data[, .(NumYears = uniqueN(Year)), by = Country]
+```
+
+------------------------------------------------------------------------
+
+[**Summary of the outputs from data exploration:**]{.underline}
+
+-   The combined dataset contains 252,741 rows and 4,551 unique indicators, covering India, Brazil, and Germany across 65 years (1960–2024).
+
+<!-- -->
+
+-   Some indicators appear consistently, such as Net migration, Life expectancy, and Agricultural land, indicating common global metrics.
+
+------------------------------------------------------------------------
+
+#### Question 4:
+
+[**Analysis 1:** Average value of each indicator per country]{.underline}
+
+```{r}
+avg_indicator_by_country <- comb_data[
+  , .(Avg_Value = mean(Value, na.rm = TRUE)), 
+  keyby = .(Country, Indicator_Name)
+]
+
+head(avg_indicator_by_country)
+```
+
+The average value calculation by indicator and country shows Brazil's indicators listed first due to "keyby" sorting alphabetically by Country and then by Indicator Name.
+
+------------------------------------------------------------------------
+
+[**Analysis 2:** Trend of a specific indicator (Life expectancy at birth, female (years))]{.underline}
+
+```{r}
+life_expectancy_female <- comb_data[
+  Indicator_Name == "Life expectancy at birth, female (years)"
+]
+
+avg_life_expectancy_female <- life_expectancy_female[
+  , .(Avg_LifeExp = mean(Value, na.rm = TRUE)), 
+  by = .(Year, Country)
+]
+
+avg_life_expectancy_female
+
+```
+
+-   Across the years, Germany consistently maintains the highest female life expectancy, followed by Brazil, while India shows steady improvement from 45 to over 73 years.
+
+-   All three countries exhibit a long-term upward trend, with India experiencing the most significant relative growth since 1960.
+
+------------------------------------------------------------------------
+
+[**Analysis 3:** Identifying the Top 5 Indicators with Highest Average Value per Country]{.underline}
+
+```{r}
+top_indicators_by_country <- comb_data[
+  , .(Avg_Value = mean(Value, na.rm = TRUE)), 
+  by = .(Country, Indicator_Name)
+][order(-Avg_Value), .SD[1:5], by = Country]
+
+top_indicators_by_country
+
+```
+
+------------------------------------------------------------------------
+
+[**Analysis 4:** Trends in Agricultural Land]{.underline}
+
+```{r}
+agri_land <- comb_data[
+  Indicator_Name == "Agricultural land (% of land area)"
+]
+
+agri_land_trend <- agri_land[
+  , .(Avg_Land = mean(Value, na.rm = TRUE)), 
+  by = .(Year, Country)
+]
+
+head(agri_land_trend)
+```
+
+------------------------------------------------------------------------
+
+#### Question 5:
+
+[**Life Expectancy at Birth (Female) Over Time for All Countries**]{.underline}
+
+```{r}
+ggplot(avg_life_expectancy_female, aes(x = Year, y = Avg_LifeExp, color = Country)) +
+  geom_line(size = 1.1) +
+  labs(
+    title = "Female Life Expectancy at Birth (1960–2023)",
+    x = "Year",
+    y = "Average Life Expectancy (Years)"
+  ) +
+  theme_minimal()
+```
+
+**Observation:**
+
+-   Germany consistently leads in female life expectancy, followed by Brazil and India, all showing steady improvements over time.
+
+-   A noticeable dip around 2020–2021 across all countries likely reflects the impact of the COVID-19 pandemic.
+
+------------------------------------------------------------------------
+
+[**Number of Indicators Reported per Year by Country**]{.underline}
+
+```{r}
+indicator_count <- comb_data[
+  , .(Num_Indicators = uniqueN(Indicator_Name)), 
+  by = .(Year, Country)
+]
+ggplot(indicator_count, aes(x = Year, y = Num_Indicators, fill = Country)) +
+  geom_area(position = "identity", alpha = 0.5) +
+  labs(
+    title = "Number of Unique Indicators Reported per Year",
+    x = "Year",
+    y = "Indicator Count"
+  ) +
+  theme_minimal()
+```
+
+**Observation:**
+
+-   The number of reported indicators increased steadily for all countries until around 2015, with India consistently reporting the most.
+
+-   Post-2015, Brazil shows a relative surge in reporting, while a decline in all countries is visible after 2020, possibly due to data lags or disruptions.
+
+------------------------------------------------------------------------
